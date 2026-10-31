@@ -66,7 +66,7 @@ class LlamaAttention_KIVI_31(base.LlamaAttention_KIVI):
         if past_key_value is not None:
             kv_seq_len += past_key_value[-1]
         cos, sin = self.rotary_emb(value_states, position_ids)
-        query_states, key_states = base.apply_rotary_pos_emb(query_states, key_states, cos, sin, position_ids)
+        query_states, key_states = base.apply_rotary_pos_emb(query_states, key_states, cos, sin)
 
         if past_key_value is not None:
             key_states_quant_trans = past_key_value[0]
@@ -312,7 +312,7 @@ class LlamaFlashAttention_KIVI_31(base.LlamaFlashAttention_KIVI):
         if past_key_value is not None:
             kv_seq_len += past_key_value[-1]
         cos, sin = self.rotary_emb(value_states, position_ids)
-        query_states, key_states = base.apply_rotary_pos_emb(query_states, key_states, cos, sin, position_ids)
+        query_states, key_states = base.apply_rotary_pos_emb(query_states, key_states, cos, sin)
 
         if past_key_value is not None:
             key_states_quant_trans = past_key_value[0]

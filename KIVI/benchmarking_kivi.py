@@ -10,10 +10,26 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import torch
 from datasets import load_dataset
-from transformers import AutoTokenizer, LlamaConfig, LlamaForCausalLM, MistralConfig, MistralForCausalLM
+from transformers import (
+    AutoTokenizer,
+    LlamaConfig,
+    LlamaForCausalLM,
+    MistralConfig,
+    MistralForCausalLM,
+    Qwen3Config,
+    Qwen3ForCausalLM,
+)
+from transformers.models.qwen3_moe import Qwen3MoeConfig, Qwen3MoeForCausalLM
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-DATASET_NAMES = ("narrativeqa", "gov_report", "qasper")
+DATASET_NAMES = (
+    "lcc", "repobench-p",
+    "narrativeqa", "qasper", "multifieldqa_en",
+    "hotpotqa", "2wikimqa", "musique",
+    "gov_report", "qmsum", "multi_news",
+    "triviaqa", "samsum",
+
+)
 
 
 def resolve_model_path(model_name_or_path: str) -> str:
@@ -121,6 +137,18 @@ def build_model_and_tokenizer(
             cache_dir=cache_dir,
             local_files_only=local_files_only,
         )
+    elif "a3b" in model_name_lower:
+        config = Qwen3MoeConfig.from_pretrained(
+            model_name,
+            cache_dir=cache_dir,
+            local_files_only=local_files_only,
+        )
+    elif "qwen" in model_name_lower:
+        config = Qwen3Config.from_pretrained(
+            model_name,
+            cache_dir=cache_dir,
+            local_files_only=local_files_only,
+        )
     else:
         config = LlamaConfig.from_pretrained(
             model_name,
@@ -153,6 +181,14 @@ def build_model_and_tokenizer(
             from models.mistral_kivi import MistralForCausalLM_KIVI
 
             model = MistralForCausalLM_KIVI.from_pretrained(**model_kwargs)
+        elif "a3b" in model_name_lower:
+            from models.qwen_moe_kivi import Qwen3MoeForCausalLM_KIVI
+
+            model = Qwen3MoeForCausalLM_KIVI.from_pretrained(**model_kwargs)
+        elif "qwen" in model_name_lower:
+            from models.qwen_kivi import Qwen3ForCausalLM_KIVI
+
+            model = Qwen3ForCausalLM_KIVI.from_pretrained(**model_kwargs)
         else:
             if "llama-3.1" in model_name_lower:
                 from models.llama_kivi_31 import LlamaForCausalLM_KIVI_31 as LlamaForCausalLM_KIVI
@@ -164,6 +200,10 @@ def build_model_and_tokenizer(
         model_kwargs["attn_implementation"] = "flash_attention_2"
         if "mistral" in model_name_lower:
             model = MistralForCausalLM.from_pretrained(**model_kwargs)
+        elif "a3b" in model_name_lower:
+            model = Qwen3MoeForCausalLM.from_pretrained(**model_kwargs)
+        elif "qwen" in model_name_lower:
+            model = Qwen3ForCausalLM.from_pretrained(**model_kwargs)
         else:
             model = LlamaForCausalLM.from_pretrained(**model_kwargs)
     else:
@@ -210,6 +250,14 @@ def build_chat_prompt(tokenizer, prompt: str, model_name: str) -> str:
             messages,
             tokenize=False,
             add_generation_prompt=True,
+        )
+    if "qwen" in model_name_lower:
+        messages = [{"role": "user", "content": prompt}]
+        return tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+            enable_thinking=False,
         )
     return prompt
 

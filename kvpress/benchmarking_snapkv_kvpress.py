@@ -17,8 +17,15 @@ from kvpress import SnapKVPress
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(SCRIPT_DIR)
-SNAPKV_CONFIG_DIR = os.path.join(ROOT_DIR, "SnapKV", "experiments", "LongBench", "config")
-DATASET_NAMES = ("narrativeqa", "gov_report", "qasper")
+KIVI_CONFIG_DIR = os.path.join(ROOT_DIR, "KIVI", "config")
+DATASET_NAMES = (
+    "narrativeqa", "qasper", "multifieldqa_en",
+    "hotpotqa", "2wikimqa", "musique",
+    "gov_report", "qmsum", "multi_news",
+    "trec", "triviaqa", "samsum",
+    "lcc", "repobench-p",
+    "longbench_v2",
+)
 
 
 def is_cuda_oom(error: BaseException) -> bool:
@@ -32,7 +39,7 @@ def cleanup_cuda() -> None:
 
 
 def resolve_model_path(model_name_or_path: str) -> str:
-    model2path_path = os.path.join(SNAPKV_CONFIG_DIR, "model2path.json")
+    model2path_path = os.path.join(KIVI_CONFIG_DIR, "model2path.json")
     if os.path.exists(model2path_path):
         with open(model2path_path, "r", encoding="utf-8") as f:
             model2path = json.load(f)
@@ -225,7 +232,7 @@ def load_longbench_dataset(dataset_repo_or_path: Optional[str], dataset_name: st
 
 
 def load_dataset_max_new_tokens() -> Dict[str, int]:
-    dataset2maxlen_path = os.path.join(SNAPKV_CONFIG_DIR, "dataset2maxlen.json")
+    dataset2maxlen_path = os.path.join(KIVI_CONFIG_DIR, "dataset2maxlen.json")
     with open(dataset2maxlen_path, "r", encoding="utf-8") as f:
         dataset2maxlen = json.load(f)
     return {name: int(dataset2maxlen[name]) for name in DATASET_NAMES}
@@ -256,7 +263,7 @@ def load_prompts(
     if dataset_name not in DATASET_NAMES:
         raise ValueError(f"Unknown dataset_name={dataset_name}")
 
-    dataset2prompt_path = os.path.join(SNAPKV_CONFIG_DIR, "dataset2prompt.json")
+    dataset2prompt_path = os.path.join(KIVI_CONFIG_DIR, "dataset2prompt.json")
     with open(dataset2prompt_path, "r", encoding="utf-8") as f:
         dataset2prompt = json.load(f)
     prompt_format = dataset2prompt[dataset_name]

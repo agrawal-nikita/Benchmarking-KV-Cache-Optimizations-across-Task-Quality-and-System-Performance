@@ -1,0 +1,42 @@
+# Model weights (129 GB): downloaded from Hugging Face
+/cached_models/
+
+# Datasets: downloaded, see README
+/datasets/LongBench/data.zip
+/datasets/LongBench/.cache/
+/datasets/LongBench/.extracted_longbench/
+/datasets/LongBench-v2/
+/datasets/LongBench-v2-sample/
+
+# Raw run outputs: too large for git (11 GB, with single files over GitHub's 100 MB limit).
+# results_studyA/ and the CSVs derived from it are committed.
+/benchmark_results/
+/benchmarking_accuracy/
+/results_studyB/
+/cam/
+/snapkv/
+
+# Figures written by plotting.ipynb
+/*.pdf
+/*.png
+
+# Upstream history of the vendored KIVI and kvpress (see README)
+.git.upstream/
+
+# Build and environment
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+*.so
+.venv/
+.ipynb_checkpoints/
+/turboquant/pred/
+
+# Local tool and OS files
+/.claude/
+/.codex
+.DS_Store
+
+# Accidental pip output (from an unquoted "pkg>=1.1.0")
+/KIVI/=1.1.0

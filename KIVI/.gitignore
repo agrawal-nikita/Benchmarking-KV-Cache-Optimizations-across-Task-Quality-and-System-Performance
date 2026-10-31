@@ -19,3 +19,8 @@ third_party
 speed_logs
 pred
 pred_e
+
+# Vendored into the parent repo: keep the files upstream tracks despite the rules above
+!config/*.json
+!scripts/*.sh
+!passkey_examples.jsonl

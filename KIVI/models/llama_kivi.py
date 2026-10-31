@@ -1,7 +1,7 @@
 import inspect
 import math
 import warnings
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 import torch
 import torch.nn.functional as F
@@ -10,10 +10,33 @@ from torch import nn
 from quant.new_pack import triton_quantize_and_pack_along_last_dim
 from quant.matmul import cuda_bmm_fA_qB_outer
 
+from transformers import GenerationMixin
 from transformers.models.llama.configuration_llama import *
 from transformers.models.llama.modeling_llama import *
 from transformers.modeling_attn_mask_utils import _prepare_4d_causal_attention_mask
-from transformers.utils import is_flash_attn_2_available
+from transformers.utils import (
+    add_start_docstrings,
+    add_start_docstrings_to_model_forward,
+    is_flash_attn_2_available,
+    replace_return_docstrings,
+)
+# transformers ≥ 5.x added __all__ to modeling_llama, restricting wildcard exports to model
+# classes only. Import everything KIVI uses that is no longer re-exported by the wildcard.
+from transformers.models.llama.modeling_llama import (  # noqa: F811
+    BaseModelOutputWithPast,
+    CausalLMOutputWithPast,
+    DynamicCache,
+    LlamaMLP,
+    LlamaRMSNorm,
+    LlamaRotaryEmbedding,
+    apply_rotary_pos_emb,
+    logger,
+    repeat_kv,
+)
+from torch.nn import CrossEntropyLoss  # noqa: F811
+# LLAMA_INPUTS_DOCSTRING was removed in transformers ≥ 5.x.
+if "LLAMA_INPUTS_DOCSTRING" not in dir():
+    LLAMA_INPUTS_DOCSTRING = ""
 
 _CONFIG_FOR_DOC = "LlamaConfig"
 
@@ -49,7 +72,8 @@ class LlamaAttention_KIVI(nn.Module):
         self.num_key_value_heads = config.num_key_value_heads
         self.num_key_value_groups = self.num_heads // self.num_key_value_heads
         self.max_position_embeddings = config.max_position_embeddings
-        self.rope_theta = config.rope_theta
+        _rope_scaling = getattr(config, "rope_scaling", None) or {}
+        self.rope_theta = getattr(config, "rope_theta", None) or _rope_scaling.get("rope_theta", 10000.0)
         self.is_causal = True
         self.k_bits = config.k_bits
         self.v_bits = config.v_bits
@@ -119,7 +143,7 @@ class LlamaAttention_KIVI(nn.Module):
         if past_key_value is not None:
             kv_seq_len += past_key_value[-1]
         cos, sin = self.rotary_emb(value_states, position_ids)
-        query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin, position_ids)
+        query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
         assert self.num_key_value_groups == 1
         # [bsz, nh, t, hd]
         if past_key_value is not None:
@@ -328,7 +352,7 @@ class LlamaFlashAttention_KIVI(LlamaAttention_KIVI):
         if past_key_value is not None:
             kv_seq_len += past_key_value[-1]
         cos, sin = self.rotary_emb(value_states, position_ids)
-        query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin, position_ids)
+        query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
         # assert self.num_key_value_groups == 1
         # [bsz, nh, t, hd]
         if past_key_value is not None:
@@ -806,7 +830,7 @@ class LlamaModel_KIVI(LlamaPreTrainedModel):
         )
 
 
-class LlamaForCausalLM_KIVI(LlamaPreTrainedModel):
+class LlamaForCausalLM_KIVI(LlamaPreTrainedModel, GenerationMixin):
     _tied_weights_keys = ["lm_head.weight"]
 
     def __init__(self, config):
@@ -896,12 +920,16 @@ class LlamaForCausalLM_KIVI(LlamaPreTrainedModel):
         )
 
         hidden_states = outputs[0]
+        # During generation only the last token's logits are needed.
+        # Projecting all seq_len positions to vocab_size then casting to fp32
+        # creates a [batch, seq_len, vocab_size] tensor that OOMs on long contexts.
+        lm_hidden = hidden_states[:, -1:, :] if labels is None else hidden_states
         if self.config.pretraining_tp > 1:
             lm_head_slices = self.lm_head.weight.split(self.vocab_size // self.config.pretraining_tp, dim=0)
-            logits = [F.linear(hidden_states, lm_head_slices[i]) for i in range(self.config.pretraining_tp)]
+            logits = [F.linear(lm_hidden, lm_head_slices[i]) for i in range(self.config.pretraining_tp)]
             logits = torch.cat(logits, dim=-1)
         else:
-            logits = self.lm_head(hidden_states)
+            logits = self.lm_head(lm_hidden)
         logits = logits.float()
 
         loss = None
@@ -933,9 +961,7 @@ class LlamaForCausalLM_KIVI(LlamaPreTrainedModel):
         self, input_ids, past_key_values=None, attention_mask=None, inputs_embeds=None, **kwargs
     ):
         if isinstance(past_key_values, DynamicCache):
-            past_key_values = past_key_values.to_legacy_cache()
-            if len(past_key_values) == 0:
-                past_key_values = None
+            past_key_values = None if past_key_values.get_seq_length() == 0 else past_key_values
         if past_key_values is not None:
             past_length = past_key_values[0][-1]
             # Some generation methods already pass only the last input ID

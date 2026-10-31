@@ -1,0 +1,61 @@
+# The only requirements file in this repo. It covers run_benchmark.sh,
+# run_ablation.sh, export_scores.py, quality_ci.py, plotting.ipynb, and the KIVI,
+# kvpress, and turboquant subprojects, all sharing one environment
+# (conda env "kivi", Python 3.10).
+#
+# After installing this file, install flash-attn and the subprojects (see README):
+#   pip install --no-build-isolation flash-attn==2.8.3
+#   pip install --no-deps -e ./KIVI -e ./kvpress -e ./turboquant
+#   pip install --no-deps --no-build-isolation -e ./KIVI/quant
+#
+# --no-deps is required: KIVI's and kvpress's own pyproject.toml files list narrower
+# (and mutually conflicting) ranges for torch/transformers, so pip cannot resolve them
+# against these pins. Versions below are pinned to what is verified working together
+# in the live "kivi" conda env, the combination exercised by the entry-point scripts.
+
+torch==2.4.1
+transformers==5.2.0
+accelerate==1.13.0
+datasets==4.7.0
+tokenizers==0.22.2
+huggingface_hub==1.14.0
+numpy==2.2.6
+pandas==2.3.3
+tqdm==4.67.3
+
+# Tokenizer/model backends required by Llama/Mistral/Qwen checkpoints
+sentencepiece==0.2.1
+protobuf==7.34.0
+
+# KIVI quantized-attention CUDA kernels (quant/matmul.py, quant/new_pack.py)
+triton==3.0.0
+
+# kvpress (SnapKV/CaM presses): caching, CLI, and model downloads
+cachetools==5.5.2
+requests==2.33.1
+fire==0.6.0
+
+# LongBench accuracy scoring (KIVI/metrics.py, export_scores.py)
+rouge==1.0.1
+fuzzywuzzy==0.18.0
+jieba==0.42.1
+
+# KIVI's vicuna prompt formatting (pred_long_bench.py: fastchat.model)
+fschat==0.2.36
+
+# KIVI debugging hook (quant/qmodule.py)
+ipdb==0.13.13
+
+# kvpress/evaluation (upstream evaluation harness, not needed for the results here)
+nltk==3.9.2
+scipy==1.15.3
+bert-score==0.3.13
+pyyaml==6.0.3
+
+# plotting.ipynb
+matplotlib==3.9.4
+seaborn==0.13.2
+
+# flash-attn==2.8.3 is REQUIRED (Full KV runs hard-code flash_attention_2) but is not
+# listed as an active pin: its build imports torch, so it has to be installed after
+# this file, with the command at the top. It needs a GPU and the CUDA toolchain.

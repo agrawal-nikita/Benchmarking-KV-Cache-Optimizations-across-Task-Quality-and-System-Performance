@@ -32,7 +32,7 @@ def build_cam_press(args):
     if args.press_name == "cam_knorm":
         base_press = KnormPress()
     elif args.press_name == "cam_snapkv":
-        base_press = SnapKVPress(window_size=args.window_size, kernel_size=args.kernel_size)
+        base_press = SnapKVPress(compression_ratio=args.compression_ratio, window_size=args.window_size, kernel_size=args.kernel_size)
     elif args.press_name == "cam_streaming_llm":
         base_press = StreamingLLMPress()
     elif args.press_name == "cam_tova":
@@ -212,6 +212,8 @@ def main():
         default="cam_knorm",
         choices=["cam_knorm", "cam_snapkv", "cam_streaming_llm", "cam_tova"],
     )
+    parser.add_argument("--compression_ratio", type=float, default=1.0,
+                        help="compression_ratio for the base SnapKV press (only used with cam_snapkv)")
     parser.add_argument("--compression_interval", type=int, default=32)
     parser.add_argument("--target_size", type=int, default=1024)
     parser.add_argument("--hidden_states_buffer_size", type=int, default=64)
